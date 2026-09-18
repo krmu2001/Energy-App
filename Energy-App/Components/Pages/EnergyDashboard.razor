@@ -1,0 +1,71 @@
+@page "/EnergyDashboard"
+@using Energy_App.Features.EnergyCharts.Models
+@using Energy_App.Features.EnergyCharts.Services
+
+@inject EnergyChartService EnergyChartService
+
+@rendermode InteractiveServer
+
+<h1>Energy Dashboard</h1>
+
+<div>
+    <label for="bidding-zone">Bidding zone:</label>
+
+    <select id="bidding-zone" @bind="_biddingZone">
+        <option value="DK1">DK1</option>
+        <option value="DK2">DK2</option>
+    </select>
+
+    <button @onclick="LoadPricesAsync">
+        Load prices
+    </button>
+</div>
+
+@if (_isLoading)
+{
+    <p>Loading electricity prices...</p>
+}
+else if (_electricityPrice is null)
+{
+    <p>Select your criteria and load electricity prices.</p>
+}
+else
+{
+    <p>Unit: @_electricityPrice.Unit</p>
+    <p>Resolution: @_electricityPrice.Resolution</p>
+    <p>Interval: @_electricityPrice.IntervalMinutes minutes</p>
+    <p>Data points: @_electricityPrice.Data.Count</p>
+
+    <h2>First prices</h2>
+
+    @foreach (var pricePoint in _electricityPrice.Data.Take(5))
+    {
+        <p>
+            @pricePoint.Timestamp:
+            @pricePoint.Values["day_ahead_price"] @_electricityPrice.Unit
+        </p>
+    }
+}
+
+@code {
+    private ElectricityPrice? _electricityPrice;
+    
+    private bool _isLoading;
+    private string? _errorMessage;
+    
+    private string _biddingZone = "DK1";
+    private DateOnly _startDate = new(2026, 09, 11);
+    private DateOnly _endDate = new(2026, 09, 18);
+
+    private async Task LoadPricesAsync()
+    {
+        _isLoading = true;
+
+        _electricityPrice = await EnergyChartService.GetPricesAsync(
+            _biddingZone,
+            _startDate,
+            _endDate);
+
+        _isLoading = false;
+    }
+}

@@ -7,6 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// HTTP Clients
+builder.Services.AddHttpClient<EnergyChartService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EnergyCharts:BaseUrl"]
+                                 ?? throw new InvalidOperationException("EnergyCharts:BaseUrl is not configured in appsettings.json"));
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -16,13 +23,6 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-
-// HTTP Clients
-builder.Services.AddHttpClient<EnergyChartService>(client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["EnergyCharts:BaseUrl"]
-                         ?? throw new InvalidOperationException("EnergyCharts:BaseUrl is not configured in appsettings.json"));
-});
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();

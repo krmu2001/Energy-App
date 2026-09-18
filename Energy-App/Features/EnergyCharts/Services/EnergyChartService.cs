@@ -11,7 +11,7 @@ public class EnergyChartService
         _httpClient = httpClient;
     }
 
-    public async Task<ElectricityPrice?> GetAllPricesAsync(string biddingZone, DateOnly start, DateOnly end)
+    public async Task<ElectricityPrice?> GetPricesAsync(string biddingZone, DateOnly start, DateOnly end)
     {
         var url = $"v2/price?bzn={biddingZone}&start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}";
     
