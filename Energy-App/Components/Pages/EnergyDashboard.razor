@@ -1,44 +1,65 @@
-@page "/EnergyDashboard"
+@page "/"
+@using Energy_App.Features.EnergyCharts.Analytics
 @using Energy_App.Features.EnergyCharts.Models
 @using Energy_App.Features.EnergyCharts.Services
 
 @inject EnergyChartService EnergyChartService
+@inject EnergyPriceAnalytics EnergyPriceAnalytics
 
 @rendermode InteractiveServer
 
+<MudThemeProvider />
 <MudPopoverProvider />
 
 <h1>Energy Dashboard</h1>
 
-<MudPaper Class="pa-16 ma-2"
-          Elevation="0">
-    <MudChart T="decimal" 
-              ChartType="ChartType.Line"
-              ChartSeries="@_series"
-              ChartLabels="@_xAxisLabels"
-              ChartOptions="@_options" />
+<!-- Filters -->
+<MudPaper Class="pa-6 mb-6"
+          Elevation="1"
+          Outlined="true">
+    <MudGrid AlignItems="AlignItems.Center">
+        <!-- Bidding Zone -->
+        <MudItem xs="12" 
+                 sm="6" 
+                 md="3">
+            <MudSelect T="string"
+                       Label="Bidding Zone"
+                       @bind-Value="_biddingZone">
+
+                <MudSelectItem Value="@("DK1")">DK1</MudSelectItem>
+                <MudSelectItem Value="@("DK2")">DK2</MudSelectItem>
+
+            </MudSelect>
+        </MudItem>
+        
+        <!-- Start Date -->
+        <MudItem xs="12" 
+                 sm="6" 
+                 md="3">
+            <MudDatePicker Label="Start Date"
+                           @bind-Date="_selectedStartDate" />
+        </MudItem>
+        
+        <!-- End Date -->
+        <MudItem xs="12" 
+                 sm="6" 
+                 md="3">
+            <MudDatePicker Label="End Date"
+                           @bind-Date="_selectedEndDate" />
+        </MudItem>
+        
+        <!-- Load Prices -->
+        <MudItem xs="12" 
+                 sm="6" 
+                 md="3">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="LoadPricesAsync">
+                Load prices
+            </MudButton>
+        </MudItem>
+    </MudGrid>
 </MudPaper>
-
-
-<div>
-    <label for="bidding-zone">Bidding zone:</label>
-
-    <select id="bidding-zone" @bind="_biddingZone">
-        <option value="DK1">DK1</option>
-        <option value="DK2">DK2</option>
-    </select>
-
-    <button @onclick="LoadPricesAsync">
-        Load prices
-    </button>
-</div>
-<div>
-    <MudDatePicker Label="Start Date"
-                   @bind-Date="_selectedStartDate" />
-
-    <MudDatePicker Label="End Date"
-                   @bind-Date="_selectedEndDate" />
-</div>
 
 @if (_isLoading)
 {
@@ -54,10 +75,122 @@ else if (_electricityPrice is null)
 }
 else
 {
-    <p>Unit: @_electricityPrice.Unit</p>
-    <p>Resolution: @_electricityPrice.Resolution</p>
-    <p>Interval: @_electricityPrice.IntervalMinutes minutes</p>
-    <p>Data points: @_electricityPrice.Data.Count</p>
+    <!-- Analytics -->
+    <MudGrid>
+        <MudItem xs="12" 
+                 sm="6" 
+                 md="4">
+            <MudPaper Class="pa-5"
+                      Elevation="1"
+                      Outlined="true">
+                <MudText Typo="Typo.overline">
+                    Average Price
+                </MudText>
+
+                <MudText Typo="Typo.h4" Class="mt-1">
+                    @_averagePrice.ToString("F2")
+                </MudText>
+
+                <MudText Typo="Typo.body2">
+                    @_electricityPrice.Unit
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        @if (_minimumPricePoint is not null)
+        {
+            <MudItem xs="12" 
+                     sm="6" 
+                     md="4">
+                <MudPaper Class="pa-5"
+                          Elevation="1"
+                          Outlined="true">
+                    <MudText Typo="Typo.overline">
+                        Minimum Price
+                    </MudText>
+
+                    <MudText Typo="Typo.h4" Class="mt-1">
+                        @_minimumPricePoint.Values["day_ahead_price"].ToString("F2")
+                    </MudText>
+
+                    <MudText Typo="Typo.body2">
+                        @_electricityPrice.Unit
+                    </MudText>
+
+                    <MudText Typo="Typo.body2">
+                        at @_minimumPricePoint.Timestamp.ToString("dd/MM/yyyy HH:mm")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        }
+
+        @if (_maximumPricePoint is not null)
+        {
+            <MudItem xs="12" 
+                     sm="6" 
+                     md="4">
+                <MudPaper Class="pa-5"
+                          Elevation="1"
+                          Outlined="true">
+                    <MudText Typo="Typo.overline">
+                        Maximum Price
+                    </MudText>
+
+                    <MudText Typo="Typo.h4" Class="mt-1">
+                        @_maximumPricePoint.Values["day_ahead_price"].ToString("F2")
+                    </MudText>
+
+                    <MudText Typo="Typo.body2">
+                        @_electricityPrice.Unit
+                    </MudText>
+
+                    <MudText Typo="Typo.body2">
+                        at @_maximumPricePoint.Timestamp.ToString("dd/MM/yyyy HH:mm")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <!-- Chart -->
+    <MudPaper Class="pa-4 mt-4" Elevation="1">
+        <MudText Typo="Typo.h6">
+            Price
+        </MudText>
+
+        <MudChart T="decimal"
+                  ChartType="ChartType.Line"
+                  ChartSeries="@_series"
+                  ChartLabels="@_xAxisLabels"
+                  ChartOptions="@_options" />
+    </MudPaper>
+
+    <!-- Metadata -->
+    <MudPaper Class="pa-4 mt-4" Elevation="0">
+        <MudText Typo="Typo.subtitle2">
+            Market Data
+        </MudText>
+
+        <MudText Typo="Typo.body2">
+            Bidding zone: @_electricityPrice.BiddingZone
+        </MudText>
+
+        <MudText Typo="Typo.body2">
+            Unit: @_electricityPrice.Unit
+        </MudText>
+
+        <MudText Typo="Typo.body2">
+            Resolution: @_electricityPrice.Resolution
+        </MudText>
+
+        <MudText Typo="Typo.body2">
+            Interval: @_electricityPrice.IntervalMinutes minutes
+        </MudText>
+
+        <MudText Typo="Typo.body2">
+            Data points: @_electricityPrice.Data.Count
+        </MudText>
+    </MudPaper>
 
     <h2>First prices</h2>
 
@@ -75,6 +208,9 @@ else
     
     private bool _isLoading;
     private string? _errorMessage = null;
+    private decimal _averagePrice;
+    private EnergyPricePoint? _minimumPricePoint;
+    private EnergyPricePoint? _maximumPricePoint;
     
     private string _biddingZone = "DK1";
     private DateTime? _selectedStartDate = new(2026, 09, 11);
@@ -84,8 +220,8 @@ else
     
     private LineChartOptions _options = new()
     {
-        XAxisTitle = "Time Intervals",
-        YAxisTitle = "Electricity Price",
+        XAxisTitle = "Time",
+        YAxisTitle = "Price (EUR/MWh)",
     };
     
     private string[] _xAxisLabels = {  };
@@ -151,6 +287,13 @@ else
                 _biddingZone,
                 startDate,
                 endDate);
+
+            if (_electricityPrice != null)
+            {
+                _averagePrice = EnergyPriceAnalytics.CalculateAveragePrice(_electricityPrice);
+                _minimumPricePoint = EnergyPriceAnalytics.FindMinimumPricePoint(_electricityPrice);
+                _maximumPricePoint = EnergyPriceAnalytics.FindMaximumPricePoint(_electricityPrice);
+            }
 
             UpdateChart();
         }

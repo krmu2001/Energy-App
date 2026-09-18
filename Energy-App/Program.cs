@@ -1,4 +1,5 @@
 using Energy_App.Components;
+using Energy_App.Features.EnergyCharts.Analytics;
 using Energy_App.Features.EnergyCharts.Services;
 using MudBlazor.Services;
 
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddMudServices();
+builder.Services.AddScoped<EnergyPriceAnalytics>();
 
 // HTTP Clients
 builder.Services.AddHttpClient<EnergyChartService>(client =>
