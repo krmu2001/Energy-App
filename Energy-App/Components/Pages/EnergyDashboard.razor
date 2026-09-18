@@ -6,7 +6,19 @@
 
 @rendermode InteractiveServer
 
+<MudPopoverProvider />
+
 <h1>Energy Dashboard</h1>
+
+<MudPaper Class="pa-16 ma-2"
+          Elevation="0">
+    <MudChart T="decimal" 
+              ChartType="ChartType.Line"
+              ChartSeries="@_series"
+              ChartLabels="@_xAxisLabels"
+              ChartOptions="@_options" />
+</MudPaper>
+
 
 <div>
     <label for="bidding-zone">Bidding zone:</label>
@@ -20,10 +32,21 @@
         Load prices
     </button>
 </div>
+<div>
+    <MudDatePicker Label="Start Date"
+                   @bind-Date="_selectedStartDate" />
+
+    <MudDatePicker Label="End Date"
+                   @bind-Date="_selectedEndDate" />
+</div>
 
 @if (_isLoading)
 {
     <p>Loading electricity prices...</p>
+}
+else if (_errorMessage is not null)
+{
+    <p>@_errorMessage</p>
 }
 else if (_electricityPrice is null)
 {
@@ -51,21 +74,93 @@ else
     private ElectricityPrice? _electricityPrice;
     
     private bool _isLoading;
-    private string? _errorMessage;
+    private string? _errorMessage = null;
     
     private string _biddingZone = "DK1";
-    private DateOnly _startDate = new(2026, 09, 11);
-    private DateOnly _endDate = new(2026, 09, 18);
+    private DateTime? _selectedStartDate = new(2026, 09, 11);
+    private DateTime? _selectedEndDate = new(2026, 09, 12);
+
+    private List<ChartSeries<decimal>> _series = new();
+    
+    private LineChartOptions _options = new()
+    {
+        XAxisTitle = "Time Intervals",
+        YAxisTitle = "Electricity Price",
+    };
+    
+    private string[] _xAxisLabels = {  };
+
+    private void UpdateChart()
+    {
+        if (_electricityPrice is null)
+            return;
+
+        _xAxisLabels = _electricityPrice.Data
+            .Select(x =>
+            {
+                if (x.Timestamp.Minute != 0)
+                    return string.Empty;
+
+                if (x.Timestamp.Hour == 0)
+                    return x.Timestamp.ToString("dd/MM");
+
+                return x.Timestamp.Hour % 4 == 0
+                    ? x.Timestamp.ToString("HH:mm")
+                    : string.Empty;
+            })
+            .ToArray();
+        
+        var prices = _electricityPrice.Data
+            .Select(x => x.Values["day_ahead_price"])
+            .ToArray();
+
+        _series =
+        [
+            new ChartSeries<decimal>
+            {
+                Name = "Prices",
+                Data = prices,
+            }
+        ];
+    }
 
     private async Task LoadPricesAsync()
     {
+        _errorMessage = null;
+
+        if (_selectedStartDate is null || _selectedEndDate is null)
+        {
+            _errorMessage = "Please select both a start date and an end date.";
+            return;
+        }
+
+        if (_selectedStartDate > _selectedEndDate)
+        {
+            _errorMessage = "Start date cannot be after end date.";
+            return;
+        }
+
         _isLoading = true;
 
-        _electricityPrice = await EnergyChartService.GetPricesAsync(
-            _biddingZone,
-            _startDate,
-            _endDate);
+        try
+        {
+            var startDate = DateOnly.FromDateTime(_selectedStartDate.Value);
+            var endDate = DateOnly.FromDateTime(_selectedEndDate.Value);
 
-        _isLoading = false;
+            _electricityPrice = await EnergyChartService.GetPricesAsync(
+                _biddingZone,
+                startDate,
+                endDate);
+
+            UpdateChart();
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Unable to load electricity prices. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 }
