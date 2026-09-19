@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Energy_App.Features.EnergyCharts.Models;
+namespace Energy_App.Features.PowerPrices.Models;
 
-public class EnergyPricePoint
+public class PowerPricePoint
 {
     [JsonPropertyName("timestamp")]
     public DateTimeOffset Timestamp { get; set; }

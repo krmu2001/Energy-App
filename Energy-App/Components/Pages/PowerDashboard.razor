@@ -1,10 +1,10 @@
 @page "/"
-@using Energy_App.Features.EnergyCharts.Analytics
-@using Energy_App.Features.EnergyCharts.Models
-@using Energy_App.Features.EnergyCharts.Services
+@using Energy_App.Features.PowerPrices.Analytics
+@using Energy_App.Features.PowerPrices.Models
+@using Energy_App.Features.PowerPrices.Services
 
-@inject EnergyChartService EnergyChartService
-@inject EnergyPriceAnalytics EnergyPriceAnalytics
+@inject IEnergyChartService EnergyChartService
+@inject PowerPriceAnalytics PowerPriceAnalytics
 
 @rendermode InteractiveServer
 
@@ -204,13 +204,13 @@ else
 }
 
 @code {
-    private ElectricityPrice? _electricityPrice;
+    private PowerPriceResponse? _electricityPrice;
     
     private bool _isLoading;
     private string? _errorMessage = null;
     private decimal _averagePrice;
-    private EnergyPricePoint? _minimumPricePoint;
-    private EnergyPricePoint? _maximumPricePoint;
+    private PowerPricePoint? _minimumPricePoint;
+    private PowerPricePoint? _maximumPricePoint;
     
     private string _biddingZone = "DK1";
     private DateTime? _selectedStartDate = new(2026, 09, 11);
@@ -290,9 +290,9 @@ else
 
             if (_electricityPrice != null)
             {
-                _averagePrice = EnergyPriceAnalytics.CalculateAveragePrice(_electricityPrice);
-                _minimumPricePoint = EnergyPriceAnalytics.FindMinimumPricePoint(_electricityPrice);
-                _maximumPricePoint = EnergyPriceAnalytics.FindMaximumPricePoint(_electricityPrice);
+                _averagePrice = PowerPriceAnalytics.CalculateAveragePrice(_electricityPrice);
+                _minimumPricePoint = PowerPriceAnalytics.FindMinimumPricePoint(_electricityPrice);
+                _maximumPricePoint = PowerPriceAnalytics.FindMaximumPricePoint(_electricityPrice);
             }
 
             UpdateChart();

@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Energy_App.Features.EnergyCharts.Models;
+namespace Energy_App.Features.PowerPrices.Models;
 
-public class ElectricityPrice
+public class PowerPriceResponse
 {
     [JsonPropertyName("schema_version")]
     public string SchemaVersion { get; set; } = string.Empty;
@@ -28,5 +28,5 @@ public class ElectricityPrice
     public DateTimeOffset? AvailableUntil { get; set; }
 
     [JsonPropertyName("data")]
-    public List<EnergyPricePoint> Data { get; set; } = [];
+    public List<PowerPricePoint> Data { get; set; } = [];
 }
