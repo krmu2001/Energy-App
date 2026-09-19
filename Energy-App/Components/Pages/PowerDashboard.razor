@@ -2,6 +2,7 @@
 @using Energy_App.Features.PowerPrices.Analytics
 @using Energy_App.Features.PowerPrices.Models
 @using Energy_App.Features.PowerPrices.Services
+@using MudBlazor.Charts
 
 @inject IEnergyChartService EnergyChartService
 @inject PowerPriceAnalytics PowerPriceAnalytics
@@ -79,7 +80,7 @@ else
     <MudGrid>
         <MudItem xs="12" 
                  sm="6" 
-                 md="4">
+                 md="3">
             <MudPaper Class="pa-5"
                       Elevation="1"
                       Outlined="true">
@@ -101,7 +102,7 @@ else
         {
             <MudItem xs="12" 
                      sm="6" 
-                     md="4">
+                     md="3">
                 <MudPaper Class="pa-5"
                           Elevation="1"
                           Outlined="true">
@@ -128,7 +129,7 @@ else
         {
             <MudItem xs="12" 
                      sm="6" 
-                     md="4">
+                     md="3">
                 <MudPaper Class="pa-5"
                           Elevation="1"
                           Outlined="true">
@@ -150,7 +151,69 @@ else
                 </MudPaper>
             </MudItem>
         }
+        
+        @if (_negativePricePoints.Count > 0)
+        {
+            <MudItem xs="12"
+                     sm="6"
+                     md="3">
+                <MudPaper Class="pa-5"
+                          Elevation="1"
+                          Outlined="true">
+                    <MudText Typo="Typo.overline">
+                        Negative Price Points
+                    </MudText>
+
+                    <MudText Typo="Typo.h4" Class="mt-1">
+                        @_negativePricePoints.Count
+                    </MudText>
+
+                    <MudText Typo="Typo.body2">
+                        intervals below 0 @_electricityPrice.Unit
+                    </MudText>
+                    
+                    <MudText Typo="Typo.body2">
+                        @($"{(int)_negativePriceDuration.TotalHours}h {_negativePriceDuration.Minutes}m total")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        }
     </MudGrid>
+    
+    @if (_cheapestPeriod is not null)
+    {
+        <MudPaper Class="pa-5 mt-4"
+                  Elevation="1"
+                  Outlined="true">
+
+            <MudText Typo="Typo.overline">
+                Cheapest @_selectedDurationHours-Hour Period
+            </MudText>
+
+            <MudText Typo="Typo.h5" Class="mt-1">
+                @_cheapestPeriod.StartDate.ToString("dd/MM/yyyy HH:mm")
+                –
+                @_cheapestPeriod.EndDate.ToString("HH:mm")
+            </MudText>
+
+            <MudText Typo="Typo.body2">
+                Average price:
+                @_cheapestPeriod.AveragePrice.ToString("F2")
+                @_electricityPrice.Unit
+            </MudText>
+            
+            <MudSelect T="int"
+                       Label="Duration"
+                       @bind-Value="_selectedDurationHours"
+                       @bind-Value:after="UpdateCheapestPeriod">
+                <MudSelectItem Value="1">1 hour</MudSelectItem>
+                <MudSelectItem Value="2">2 hours</MudSelectItem>
+                <MudSelectItem Value="3">3 hours</MudSelectItem>
+                <MudSelectItem Value="4">4 hours</MudSelectItem>
+            </MudSelect>
+
+        </MudPaper>
+    }
 
     <!-- Chart -->
     <MudPaper Class="pa-4 mt-4" Elevation="1">
@@ -159,9 +222,8 @@ else
         </MudText>
 
         <MudChart T="decimal"
-                  ChartType="ChartType.Line"
+                  ChartType="ChartType.Timeseries"
                   ChartSeries="@_series"
-                  ChartLabels="@_xAxisLabels"
                   ChartOptions="@_options" />
     </MudPaper>
 
@@ -211,6 +273,10 @@ else
     private decimal _averagePrice;
     private PowerPricePoint? _minimumPricePoint;
     private PowerPricePoint? _maximumPricePoint;
+    private List<PowerPricePoint> _negativePricePoints = new();
+    private TimeSpan _negativePriceDuration;
+    private int _selectedDurationHours = 2;
+    private CheapestPeriodResult? _cheapestPeriod;
     
     private string _biddingZone = "DK1";
     private DateTime? _selectedStartDate = new(2026, 09, 11);
@@ -218,46 +284,57 @@ else
 
     private List<ChartSeries<decimal>> _series = new();
     
-    private LineChartOptions _options = new()
+    private TimeSeriesChartOptions _options = new()
     {
         XAxisTitle = "Time",
         YAxisTitle = "Price (EUR/MWh)",
+        TooltipTimeLabelFormat = "dd/MM/yyyy HH:mm",
+        ShowDataMarkers = false
     };
     
-    private string[] _xAxisLabels = {  };
-
     private void UpdateChart()
     {
-        if (_electricityPrice is null)
+        if (_electricityPrice is null || _electricityPrice.Data.Count == 0)
             return;
 
-        _xAxisLabels = _electricityPrice.Data
-            .Select(x =>
-            {
-                if (x.Timestamp.Minute != 0)
-                    return string.Empty;
-
-                if (x.Timestamp.Hour == 0)
-                    return x.Timestamp.ToString("dd/MM");
-
-                return x.Timestamp.Hour % 4 == 0
-                    ? x.Timestamp.ToString("HH:mm")
-                    : string.Empty;
-            })
-            .ToArray();
-        
         var prices = _electricityPrice.Data
-            .Select(x => x.Values["day_ahead_price"])
+            .Select(x => new TimeValue<decimal>(
+                x.Timestamp.DateTime,
+                x.Values["day_ahead_price"]))
             .ToArray();
+
+        var start = _electricityPrice.Data.First().Timestamp;
+        var end = _electricityPrice.Data.Last().Timestamp;
+        var duration = end - start;
+
+        var isSingleDay = duration <= TimeSpan.FromDays(1);
+
+        _options.TimeLabelFormat = isSingleDay
+            ? "HH:mm"
+            : "dd/MM";
+
+        _options.TimeLabelSpacing = isSingleDay
+            ? TimeSpan.FromHours(4)
+            : TimeSpan.FromDays(1);
 
         _series =
         [
             new ChartSeries<decimal>
             {
-                Name = "Prices",
-                Data = prices,
+                Name = "Power Price",
+                Data = prices
             }
         ];
+    }
+    
+    private void UpdateCheapestPeriod()
+    {
+        if (_electricityPrice is null)
+            return;
+
+        _cheapestPeriod = PowerPriceAnalytics.FindCheapestPeriod(
+            _electricityPrice,
+            _selectedDurationHours);
     }
 
     private async Task LoadPricesAsync()
@@ -293,6 +370,10 @@ else
                 _averagePrice = PowerPriceAnalytics.CalculateAveragePrice(_electricityPrice);
                 _minimumPricePoint = PowerPriceAnalytics.FindMinimumPricePoint(_electricityPrice);
                 _maximumPricePoint = PowerPriceAnalytics.FindMaximumPricePoint(_electricityPrice);
+                _negativePricePoints = PowerPriceAnalytics.FindNegativePricePoints(_electricityPrice);
+                _negativePriceDuration = PowerPriceAnalytics.CalculateNegativePriceDuration(_electricityPrice);
+                
+                UpdateCheapestPeriod();
             }
 
             UpdateChart();
